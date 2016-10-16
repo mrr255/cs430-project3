@@ -3,7 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
-#include <3dmath.h>
+#include "3dmath.h"
 
 
 //#define DEBUG
@@ -32,10 +32,10 @@ typedef struct //Struct Redefined for lights
       double color[3];
       double direction[3];
       double position[3];
-      int radial_a2;
-      int radial_a1;
-      int radial_a0;
-      int angular_a0;
+      double radial_a2;
+      double radial_a1;
+      double radial_a0;
+      double angular_a0;
       //int angular-a1; //??
       //int angular-a2; //??
     } light;
@@ -85,59 +85,113 @@ static inline double distance(double* v1,double* v2)
   return len;
 }
 
+static inline void printObjects(Object** objects)
+{
+  for(int i = 0;objects[i]!= NULL;i+=1)
+  {
+    switch(objects[i]->kind) // 0 = plane, 1 = sphere, 2 = camera, 3 = light
+    {
+       case 0:
+       printf("%i: plane\n", i);
+       printf("diffuse color: ");
+       for(int j = 0;j<3;j+=1)
+       {
+         printf("%lf ", objects[i]->plane.diffuse_color[j]);
+       }
+       printf("\n");
+       printf("specular color: ");
+       for(int j = 0;j<3;j+=1)
+       {
+         printf("%lf ", objects[i]->plane.specular_color[j]);
+       }
+       printf("\n");
+       printf("position: ");
+       for(int j = 0;j<3;j+=1)
+       {
+         printf("%lf ", objects[i]->plane.position[j]);
+       }
+       printf("\n");
+       printf("normal: ");
+       for(int j = 0;j<3;j+=1)
+       {
+         printf("%lf ", objects[i]->plane.normal[j]);
+       }
+       printf("\n");
+       break;
+       case 1:
+       printf("%i: sphere\n", i);
+       printf("diffuse color: ");
+       for(int j = 0;j<3;j+=1)
+       {
+         printf("%lf ", objects[i]->sphere.diffuse_color[j]);
+       }
+       printf("\n");
+       printf("specular color: ");
+       for(int j = 0;j<3;j+=1)
+       {
+         printf("%lf ", objects[i]->sphere.specular_color[j]);
+       }
+       printf("\n");
+       printf("position: ");
+       for(int j = 0;j<3;j+=1)
+       {
+         printf("%lf ", objects[i]->sphere.position[j]);
+       }
+       printf("\n");
+       printf("radius: ");
+       printf("%i\n", objects[i]->sphere.radius);
+       break;
+       case 2:
+       printf("%i: camera\n", i);
+       printf("width: ");
+       printf("%lf\n", objects[i]->camera.width);
+       printf("height: ");
+       printf("%lf\n", objects[i]->camera.height);
+       break;
+       case 3:
+       printf("%i: light\n", i);
+       printf("color: ");
+       for(int j = 0;j<3;j+=1)
+       {
+         printf("%lf ", objects[i]->light.color[j]);
+       }
+       printf("\n");
+       printf("direction: ");
+       for(int j = 0;j<3;j+=1)
+       {
+         printf("%lf ", objects[i]->light.direction[j]);
+       }
+       printf("\n");
+       printf("position: ");
+       for(int j = 0;j<3;j+=1)
+       {
+         printf("%lf ", objects[i]->light.position[j]);
+       }
+       printf("\n");
+       printf("radial a2: ");
+       printf("%lf\n", objects[i]->light.radial_a2);
+       printf("radial a1: ");
+       printf("%lf\n", objects[i]->light.radial_a1);
+       printf("radial a0: ");
+       printf("%lf\n", objects[i]->light.radial_a0);
+       printf("angular a0: ");
+       printf("%lf\n", objects[i]->light.angular_a0);
+       break;
+       default:
+       printf("%i: unknown: %i \n", i, objects[i]->kind);
+    }
+  }
+}
 int main (int c, char** argv)
 {
-  printf("hello\n");
   if(c != 5)
   {
     fprintf(stderr, "Error: Invalid number of arguments\n");
     exit(1);
   }
   Object** r = parseScene(argv[3]);
+  printObjects(r);
   int i = 0;
-  while (r[i] != NULL)
-  {
-    int t = r[i]->kind;
-    printf("%i\n", t);
-    if(t == 0) //plane
-    {
-      for(int j = 0; j <3;j++)
-      {
-        printf("%lf ", r[i]->plane.color[j]);
-      }
-      printf("\n");
-      for(int j = 0; j <3;j++)
-      {
-        printf("%lf ", r[i]->plane.position[j]);
-      }
-      printf("\n");
-      for(int j = 0; j <3;j++)
-      {
-        printf("%lf ", r[i]->plane.normal[j]);
-      }
-      printf("\n");
-    }
-    else if(t == 1)
-    {
-      for(int j = 0; j <3;j++)
-      {
-        printf("%lf ", r[i]->sphere.color[j]);
-      }
-      printf("\n");
-      for(int j = 0; j <3;j++)
-      {
-        printf("%lf ", r[i]->sphere.position[j]);
-      }
-      printf("\n");
-      printf("%i\n", r[i]->sphere.radius);
-    }
-    else if(t == 2)
-    {
-      printf("%lf\n", r[i]->camera.width);
-      printf("%lf\n", r[i]->camera.height);
-    }
-    i++;
-  }
   int pxW = atoi(argv[1]);
   int pxH = atoi(argv[2]);
   Pixel* p = raycast(r,pxW,pxH);
@@ -254,6 +308,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
 
   double rO[3] = {cx, cy, 0}; //origin of ray
 
+  printf("prepare memory for image data\n");
   Pixel* image;
   image = malloc(sizeof(Pixel) * pxW * pxH); //Prepare memory for image data
   for (int y = pxH; y >= 0; y -= 1) {
@@ -294,6 +349,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
         }
         if (bestT > 0 && bestT != INFINITY) // Collect color data // ADD LIGHTS HERE
         {
+          printf("hit\n");
 
           double* color = malloc(sizeof(double)*3);
           color[0] = 0; // ambient_color[0];
@@ -302,15 +358,20 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
 
           for (int j=0; objects[j] != NULL; j+=1)
           {
+            printf("shadow test\n");
             // Shadow test
             if(objects[j]->kind != 3)
               continue;
-              Ron = bestT * Rd + Ro;
-              Rdn = light_position - Ron;
-              closest_shadow_object = NULL;
-              closest_shadow_object_distance = INFINITY;
-              for (int k=0; objects[k] != NULL; k+=1)
-              {
+
+              double* Ron = malloc(sizeof(double)*3);
+              v3_scale(rD,bestT,Ron);
+              v3_add(Ron,rO,Ron);
+              double* Rdn = malloc(sizeof(double)*3);
+              v3_subtract(objects[j]->light.position,Ron,Rdn);
+              int closest_shadow_object = -1;
+              double closest_shadow_object_distance = INFINITY;
+              for (int k=0; objects[k] == NULL; k+=1)
+              { printf("check for shadow\n");
                 if (k == bestO)
                   continue;
                 switch(objects[k]->kind) // Added support for Lights
@@ -335,14 +396,21 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
               	//}
                 if (closest_shadow_object_distance < INFINITY && closest_shadow_object_distance > 0)
                 {
-                  closest_shadow_object = objects[k];
+                  closest_shadow_object = k;
                 }
 
               }
-              if (closest_shadow_object == NULL)
+              if (closest_shadow_object == -1)
               {
+                printf("calc light\n");
               	// N, L, R, V
-
+                double* N = malloc(sizeof(double)*3);
+                double* L = malloc(sizeof(double)*3);
+                double* R = malloc(sizeof(double)*3);
+                double* V = malloc(sizeof(double)*3);
+                double* diffuse = malloc(sizeof(double)*3);
+                double* specular = malloc(sizeof(double)*3);
+                double* position = malloc(sizeof(double)*3);
                 switch(objects[bestO]->kind) // Added support for Lights
                 {
       	           case 0:
@@ -352,7 +420,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                     position = objects[bestO]->plane.position;
       	           break;
                    case 1:
-                    N = Ron - objects[bestO]->sphere.center; // sphere
+                    v3_subtract(Ron, objects[bestO]->sphere.position,N); // sphere
                     diffuse = objects[bestO]->sphere.diffuse_color;
                   	specular = objects[bestO]->sphere.specular_color;
                     position = objects[bestO]->sphere.position;
@@ -368,37 +436,42 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
       	        }
 
               	L = Rdn; // light_position - Ron;
-              	R = -2*v3_dot(L, N)*N + L//reflection of L;
-              	V = Rd;
+                double dot = v3_dot(L, N);
+                v3_scale(N,(-2*dot),R);
+                v3_add(R,L,R);//reflection of L;
+              	V = rD;
 
-                objects[j]->light.radial_a2*distance(objects[j]->light.position,position)
-
-              	color[0] += frad() * fang() * (diffuse + specular);
-              	color[1] += frad() * fang() * (diffuse + specular);
-              	color[2] += frad() * fang() * (diffuse + specular);
+                double frad = 1/(objects[j]->light.radial_a2*sqr(distance(objects[j]->light.position,position))
+                + objects[j]->light.radial_a1*distance(objects[j]->light.position,position)
+                + objects[j]->light.radial_a0);
+                double fang = 1.0; // COMPLETE
+              	color[0] += frad * fang * (diffuse[0] + specular[0]);
+              	color[1] += frad * fang * (diffuse[1] + specular[1]);
+              	color[2] += frad * fang * (diffuse[2] + specular[2]);
               }
-
+              color[0] = color[0]*255;
+              if(color[0] > 255)
+                color[0] = 255;
+              if(color[0] < 0)
+                color[0] = 0;
+              printf("%lf\n", color[0]);
+              color[1] = color[1]*255;
+              if(color[1] > 255)
+                color[1] = 255;
+              if(color[1] < 0)
+                color[1] = 0;
+              printf("%lf\n", color[1]);
+              color[2] = color[2]*255;
+              if(color[2] > 255)
+                color[2] = 255;
+              if(color[2] < 0)
+                color[2] = 0;
+              printf("%lf\n", color[2]);
           }
 
-
-          switch(objects[bestO]->kind) // check object type
-          {
-             case 0:
-              color = objects[bestO]->plane.color;
-             break;
-             case 1:
-              color = objects[bestO]->sphere.color;
-             break;
-             case 2:
-             break;
-             default:
-             // Horrible error
-             fprintf(stderr, "Error: invalid object\n");
-              exit(1);
-          }
-          image[pxH*(pxH - y-1) + x].r = (unsigned char)(255 * clamp(color[0]*255); // store color data
-          image[pxH*(pxH - y-1) + x].g = (unsigned char)(255 * clamp(color[1]*255);
-          image[pxH*(pxH - y-1) + x].b = (unsigned char)(255 * clamp(color[2]*255);
+          image[pxH*(pxH - y-1) + x].r = (unsigned char)(color[0]); // store color data
+          image[pxH*(pxH - y-1) + x].g = (unsigned char)(color[1]);
+          image[pxH*(pxH - y-1) + x].b = (unsigned char)(color[2]);
         }
         else
         {
@@ -688,6 +761,7 @@ Object** parseScene(char* input)
                   fclose(json);
                   exit(1);
                 }
+              }
           else if ((strcmp(key, "direction") == 0))
                {
                  double* value = nextVector(json);
