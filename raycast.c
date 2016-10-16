@@ -3,22 +3,24 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#include <3dmath.h>
 
 
 //#define DEBUG
 
-typedef struct
+typedef struct //Struct Redefined for lights
 {
-  int kind; // 0 = plane, 1 = sphere, 2 = camera
-  double color[3];
+  int kind; // 0 = plane, 1 = sphere, 2 = camera, 3 = light
   union {
     struct {
-      double color[3];
+      double diffuse_color[3];
+      double specular_color[3];
       double position[3];
       double normal[3];
     } plane;
     struct {
-      double color[3];
+      double diffuse_color[3];
+      double specular_color[3];
       double position[3];
       int radius;
     } sphere;
@@ -26,6 +28,17 @@ typedef struct
       double width;
       double height;
     } camera;
+    struct {
+      double color[3];
+      double direction[3];
+      double position[3];
+      int radial-a2;
+      int radial-a1;
+      int radial-a0;
+      int angular-a0;
+      int angular-a1; //??
+      int angular-a2; //??
+    } light;
   };
 } Object;
 
@@ -241,12 +254,11 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
 
       double bestT = INFINITY; //initialize the best intersection
       int bestO = -1;
-      double* color;
       int i = 0;
       while(objects[i] != NULL) // check all objects for intersection
       {
 	       double t = 0;
-	        switch(objects[i]->kind)
+	        switch(objects[i]->kind) // Added support for Lights
           {
 	           case 0:
 	            t = planeIntersect(objects[i],rO, rD);
@@ -255,6 +267,8 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
               t = sphereIntersect(objects[i],rO, rD);
              break;
              case 2:
+             break;
+             case 3:
              break;
              default:
              // Horrible error
@@ -268,8 +282,93 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
           }
           i++;
         }
-        if (bestT > 0 && bestT != INFINITY) // Collect color data
+        if (bestT > 0 && bestT != INFINITY) // Collect color data // ADD LIGHTS HERE
         {
+
+          double* color = malloc(sizeof(double)*3);
+          color[0] = 0; // ambient_color[0];
+          color[1] = 0; // ambient_color[1];
+          color[2] = 0; // ambient_color[2];
+
+          for (int j=0; objects[j] != NULL; j+=1)
+          {
+            // Shadow test
+            if(objects[j]->kind != 3)
+              continue;
+              Ron = bestT * Rd + Ro;
+              Rdn = light_position - Ron;
+              closest_shadow_object = NULL;
+              closest_shadow_object_distance = INFINITY;
+              for (int k=0; objects[k] != NULL; k+=1)
+              {
+                if (k == bestO)
+                  continue;
+                switch(objects[k]->kind) // Added support for Lights
+                {
+      	           case 0:
+      	            closest_shadow_object_distance = planeIntersect(objects[i],rO, rD);
+      	           break;
+                   case 1:
+                    closest_shadow_object_distance = sphereIntersect(objects[i],rO, rD);
+                   break;
+                   case 2:
+                   break;
+                   case 3:
+                   break;
+                   default:
+                   // Horrible error
+                   fprintf(stderr, "Error: invalid object %i\n", objects[i]->kind);
+                    exit(1);
+      	        }
+                //if (closest_shadow_object_distance > distance_to_light) {
+              	//  continue;
+              	//}
+                if (closest_shadow_object_distance < INFINITY && closest_shadow_object_distance > 0)
+                {
+                  closest_shadow_object = objects[k];
+                }
+
+              }
+              if (closest_shadow_object == NULL)
+              {
+              	// N, L, R, V
+
+                switch(objects[bestO]->kind) // Added support for Lights
+                {
+      	           case 0:
+      	            N = objects[bestO]->plane.normal; // plane
+                    diffuse = objects[bestO]->plane.diffuse_color;
+                  	specular = objects[bestO]->plane.specular_color;
+      	           break;
+                   case 1:
+                    N = Ron - objects[bestO]->sphere.center; // sphere
+                    diffuse = objects[bestO]->sphere.diffuse_color;
+                  	specular = objects[bestO]->sphere.specular_color;
+                   break;
+                   case 2:
+                   break;
+                   case 3:
+                   break;
+                   default:
+                   // Horrible error
+                   fprintf(stderr, "Error: invalid object %i\n", objects[i]->kind);
+                    exit(1);
+      	        }
+
+              	L = Rdn; // light_position - Ron;
+              	R = -2*v3_dot(L, N)*N + L//reflection of L;
+              	V = Rd;
+
+
+
+              	color[0] += frad() * fang() * (diffuse + specular);
+              	color[1] += frad() * fang() * (diffuse + specular);
+              	color[2] += frad() * fang() * (diffuse + specular);
+              }
+
+          }
+
+
           switch(objects[bestO]->kind) // check object type
           {
              case 0:
@@ -285,9 +384,9 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
              fprintf(stderr, "Error: invalid object\n");
               exit(1);
           }
-          image[pxH*(pxH - y-1) + x].r = color[0]*255; // store color data
-          image[pxH*(pxH - y-1) + x].g = color[1]*255;
-          image[pxH*(pxH - y-1) + x].b = color[2]*255;
+          image[pxH*(pxH - y-1) + x].r = (unsigned char)(255 * clamp(color[0]*255); // store color data
+          image[pxH*(pxH - y-1) + x].g = (unsigned char)(255 * clamp(color[1]*255);
+          image[pxH*(pxH - y-1) + x].b = (unsigned char)(255 * clamp(color[2]*255);
         }
         else
         {
