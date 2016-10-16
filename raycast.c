@@ -32,12 +32,12 @@ typedef struct //Struct Redefined for lights
       double color[3];
       double direction[3];
       double position[3];
-      int radial-a2;
-      int radial-a1;
-      int radial-a0;
-      int angular-a0;
-      int angular-a1; //??
-      int angular-a2; //??
+      int radial_a2;
+      int radial_a1;
+      int radial_a0;
+      int angular_a0;
+      //int angular-a1; //??
+      //int angular-a2; //??
     } light;
   };
 } Object;
@@ -73,6 +73,16 @@ static inline void normalize(double* v)
   v[0] /= len;
   v[1] /= len;
   v[2] /= len;
+}
+
+static inline double distance(double* v1,double* v2)
+{
+  double len = sqrt(sqr(v2[0]-v1[0]) + sqr(v2[1]-v1[1]) + sqr(v2[2]-v1[2]));
+  if(len <0)
+  {
+    len = -len;
+  }
+  return len;
 }
 
 int main (int c, char** argv)
@@ -339,11 +349,13 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
       	            N = objects[bestO]->plane.normal; // plane
                     diffuse = objects[bestO]->plane.diffuse_color;
                   	specular = objects[bestO]->plane.specular_color;
+                    position = objects[bestO]->plane.position;
       	           break;
                    case 1:
                     N = Ron - objects[bestO]->sphere.center; // sphere
                     diffuse = objects[bestO]->sphere.diffuse_color;
                   	specular = objects[bestO]->sphere.specular_color;
+                    position = objects[bestO]->sphere.position;
                    break;
                    case 2:
                    break;
@@ -359,7 +371,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
               	R = -2*v3_dot(L, N)*N + L//reflection of L;
               	V = Rd;
 
-
+                objects[j]->light.radial_a2*distance(objects[j]->light.position,position)
 
               	color[0] += frad() * fang() * (diffuse + specular);
               	color[1] += frad() * fang() * (diffuse + specular);
@@ -442,6 +454,10 @@ Object** parseScene(char* input)
       {
         objects[objectI]->kind = 0;
       }
+      else if (strcmp(value, "light") == 0)
+      {
+        objects[objectI]->kind = 3;
+      }
       else
       {
         fprintf(stderr, "Error: Unknown type, \"%s\", on line number %d.\n", value, line);
@@ -503,22 +519,71 @@ Object** parseScene(char* input)
                   exit(1);
                 }
       	      }
+          else if ((strcmp(key, "radial-a2") == 0))
+              {
+          	    double value = nextNumber(json);
+                if (objects[objectI]->kind == 3)
+                {
+                  objects[objectI]->light.radial_a2 = value;
+                }
+                else
+                {
+                  fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+                  fclose(json);
+                  exit(1);
+                }
+      	      }
+          else if ((strcmp(key, "radial-a1") == 0))
+              {
+          	    double value = nextNumber(json);
+                if (objects[objectI]->kind == 3)
+                {
+                  objects[objectI]->light.radial_a1 = value;
+                }
+                else
+                {
+                  fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+                  fclose(json);
+                  exit(1);
+                }
+      	      }
+          else if ((strcmp(key, "radial-a0") == 0))
+              {
+          	    double value = nextNumber(json);
+                if (objects[objectI]->kind == 3)
+                {
+                  objects[objectI]->light.radial_a0 = value;
+                }
+                else
+                {
+                  fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+                  fclose(json);
+                  exit(1);
+                }
+      	      }
+          else if ((strcmp(key, "angular-a0") == 0))
+              {
+          	    double value = nextNumber(json);
+                if (objects[objectI]->kind == 3)
+                {
+                  objects[objectI]->light.angular_a0 = value;
+                }
+                else
+                {
+                  fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+                  fclose(json);
+                  exit(1);
+                }
+      	      }
           //Vectors
           else if ((strcmp(key, "color") == 0))
                {
       	          double* value = nextVector(json);
-                  if (objects[objectI]->kind == 1)
+                  if (objects[objectI]->kind == 3)
                   {
                     for(int i = 0;i<3;i++)
                     {
-                    objects[objectI]->sphere.color[i] = value[i];
-                    }
-                  }
-                  else if (objects[objectI]->kind == 0)
-                  {
-                    for(int i = 0;i<3;i++)
-                    {
-                    objects[objectI]->plane.color[i] = value[i];
+                    objects[objectI]->light.color[i] = value[i];
                     }
                   }
                   else
@@ -528,6 +593,54 @@ Object** parseScene(char* input)
                     exit(1);
                   }
       	       }
+           else if ((strcmp(key, "specular_color") == 0))
+                {
+       	          double* value = nextVector(json);
+                   if (objects[objectI]->kind == 1)
+                   {
+                     for(int i = 0;i<3;i++)
+                     {
+                     objects[objectI]->sphere.specular_color[i] = value[i];
+                     }
+                   }
+                   else if (objects[objectI]->kind == 0)
+                   {
+                     for(int i = 0;i<3;i++)
+                     {
+                     objects[objectI]->plane.specular_color[i] = value[i];
+                     }
+                   }
+                   else
+                   {
+                     fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+                     fclose(json);
+                     exit(1);
+                   }
+       	       }
+           else if ((strcmp(key, "diffuse_color") == 0))
+                {
+       	          double* value = nextVector(json);
+                   if (objects[objectI]->kind == 1)
+                   {
+                     for(int i = 0;i<3;i++)
+                     {
+                     objects[objectI]->sphere.diffuse_color[i] = value[i];
+                     }
+                   }
+                   else if (objects[objectI]->kind == 0)
+                   {
+                     for(int i = 0;i<3;i++)
+                     {
+                     objects[objectI]->plane.diffuse_color[i] = value[i];
+                     }
+                   }
+                   else
+                   {
+                     fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+                     fclose(json);
+                     exit(1);
+                   }
+       	       }
           else if ((strcmp(key, "position") == 0))
               {
                 double* value = nextVector(json);
@@ -543,6 +656,13 @@ Object** parseScene(char* input)
                   for(int i = 0;i<3;i++)
                   {
                   objects[objectI]->plane.position[i] = value[i];
+                  }
+                }
+                else if (objects[objectI]->kind == 3)
+                {
+                  for(int i = 0;i<3;i++)
+                  {
+                  objects[objectI]->light.position[i] = value[i];
                   }
                 }
                 else
@@ -568,7 +688,24 @@ Object** parseScene(char* input)
                   fclose(json);
                   exit(1);
                 }
+          else if ((strcmp(key, "direction") == 0))
+               {
+                 double* value = nextVector(json);
+                 if (objects[objectI]->kind == 3)
+                 {
+                   for(int i = 0;i<3;i++)
+                   {
+                   objects[objectI]->light.direction[i] = value[i];
+                   }
+                 }
+                 else
+                 {
+                   fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+                   fclose(json);
+                   exit(1);
+                 }
               }
+
           else {
       	    fprintf(stderr, "Error: Unknown property, \"%s\", on line %d.\n", key, line);
             fclose(json);
