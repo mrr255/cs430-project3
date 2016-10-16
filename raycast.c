@@ -349,7 +349,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
         }
         if (bestT > 0 && bestT != INFINITY) // Collect color data // ADD LIGHTS HERE
         {
-          printf("hit\n");
+          //printf("hit\n");
 
           double* color = malloc(sizeof(double)*3);
           color[0] = 0; // ambient_color[0];
@@ -358,7 +358,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
 
           for (int j=0; objects[j] != NULL; j+=1)
           {
-            printf("shadow test\n");
+            //printf("shadow test\n");
             // Shadow test
             if(objects[j]->kind != 3)
               continue;
@@ -370,17 +370,20 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
               v3_subtract(objects[j]->light.position,Ron,Rdn);
               int closest_shadow_object = -1;
               double closest_shadow_object_distance = INFINITY;
+              double* closest_position = malloc(sizeof(double)*3);
               for (int k=0; objects[k] == NULL; k+=1)
-              { printf("check for shadow\n");
+              { //printf("check for shadow\n");
                 if (k == bestO)
                   continue;
                 switch(objects[k]->kind) // Added support for Lights
                 {
       	           case 0:
       	            closest_shadow_object_distance = planeIntersect(objects[i],rO, rD);
+                    closest_position = objects[k]->plane.position;
       	           break;
                    case 1:
                     closest_shadow_object_distance = sphereIntersect(objects[i],rO, rD);
+                    closest_position = objects[k]->sphere.position;
                    break;
                    case 2:
                    break;
@@ -391,9 +394,9 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                    fprintf(stderr, "Error: invalid object %i\n", objects[i]->kind);
                     exit(1);
       	        }
-                //if (closest_shadow_object_distance > distance_to_light) {
-              	//  continue;
-              	//}
+                if (closest_shadow_object_distance > distance(objects[j]->light.position,closest_position)) {
+              	  continue;
+              	}
                 if (closest_shadow_object_distance < INFINITY && closest_shadow_object_distance > 0)
                 {
                   closest_shadow_object = k;
@@ -402,7 +405,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
               }
               if (closest_shadow_object == -1)
               {
-                printf("calc light\n");
+                //printf("calc light\n");
               	// N, L, R, V
                 double* N = malloc(sizeof(double)*3);
                 double* L = malloc(sizeof(double)*3);
@@ -421,6 +424,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
       	           break;
                    case 1:
                     v3_subtract(Ron, objects[bestO]->sphere.position,N); // sphere
+                    normalize(N);
                     diffuse = objects[bestO]->sphere.diffuse_color;
                   	specular = objects[bestO]->sphere.specular_color;
                     position = objects[bestO]->sphere.position;
@@ -445,28 +449,51 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                 + objects[j]->light.radial_a1*distance(objects[j]->light.position,position)
                 + objects[j]->light.radial_a0);
                 double fang = 1.0; // COMPLETE
-              	color[0] += frad * fang * (diffuse[0] + specular[0]);
-              	color[1] += frad * fang * (diffuse[1] + specular[1]);
-              	color[2] += frad * fang * (diffuse[2] + specular[2]);
+
+                double* diffusecalc = malloc(sizeof(double)*3);
+                v3_mult(objects[j]->light.color,diffuse,diffusecalc);
+                v3_scale(diffusecalc,-1*v3_dot(L,N),diffusecalc);
+
+                for(int q = 0;q < 3; q +=1)
+                {
+                  diffusecalc[q] = abs(diffusecalc[q]);
+                  //printf("%lf ", diffusecalc[q]);
+                }
+                //printf("\n" );
+                double* specularcalc = malloc(sizeof(double)*3);
+                v3_mult(objects[j]->light.color,specular,specularcalc);
+                v3_scale(specularcalc,pow(v3_dot(R,V),-5),specularcalc);
+
+                for(int q = 0;q < 3; q +=1)
+                {
+                  if(specularcalc[q] < 0)
+                    specularcalc[q] = -specular[q];
+                  //printf("%lf ", specularcalc[q]);
+                }
+                //printf("\n" );
+
+              	color[0] += frad * fang * (diffusecalc[0] + specularcalc[0]);
+              	color[1] += frad * fang * (diffusecalc[1] + specularcalc[1]);
+              	color[2] += frad * fang * (diffusecalc[2] + specularcalc[2]);
               }
               color[0] = color[0]*255;
               if(color[0] > 255)
                 color[0] = 255;
               if(color[0] < 0)
                 color[0] = 0;
-              printf("%lf\n", color[0]);
+              //printf("%lf\n", color[0]);
               color[1] = color[1]*255;
               if(color[1] > 255)
                 color[1] = 255;
               if(color[1] < 0)
                 color[1] = 0;
-              printf("%lf\n", color[1]);
+              //printf("%lf\n", color[1]);
               color[2] = color[2]*255;
               if(color[2] > 255)
                 color[2] = 255;
               if(color[2] < 0)
                 color[2] = 0;
-              printf("%lf\n", color[2]);
+              //printf("%lf\n", color[2]);
           }
 
           image[pxH*(pxH - y-1) + x].r = (unsigned char)(color[0]); // store color data

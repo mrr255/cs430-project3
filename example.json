@@ -7,20 +7,20 @@
  {
     "type": "sphere",
     "diffuse_color": [1, 0, 0],
-    "specular_color": [0, 0, 1],
+    "specular_color": [1, 1, 1],
     "position": [1, 1, 10],
     "radius": 2
  },
  {
  "type": "light",
  "color": [1.0, 1.0, 1.0],
- "position": [0, 5, 7],
- "radial-a2": 0.4
+ "position": [0, 4, 6],
+ "radial-a2": 0.5
  },
  {
     "type": "plane",
     "diffuse_color": [0, 1, 0],
-    "specular_color": [1, 0, 0],
+    "specular_color": [1, 1, 1],
     "position": [0, -1, 0],
     "normal": [0, 1, 0]
  }
