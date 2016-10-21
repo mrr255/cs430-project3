@@ -397,6 +397,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
               double* closest_position = malloc(sizeof(double)*3);
 
               int k = 0;
+              int shadow = 0;
               while(objects[k] != NULL)
               { //printf("check for shadow %i\n", k);
 
@@ -405,7 +406,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                     k+=1;
                   continue;
                 }
-                
+
                 switch(objects[k]->kind) // Added support for Lights
                 {
       	           case 0:
@@ -415,8 +416,12 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                     closest_shadow_object_distance = sphereIntersect(objects[k],rOn, rDn);
                    break;
                    case 2:
+                   k+=1;
+                 continue;
                    break;
                    case 3:
+                   k+=1;
+                 continue;
                    break;
                    default:
                    // Horrible error
@@ -432,10 +437,11 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                 {
                   closest_shadow_object = k;
                   printf("found shadow: %i\n", k);
+                  shadow = 1;
                 }
                 k+=1;
               }
-              if (closest_shadow_object == -1)
+              if (closest_shadow_object == -1 && shadow == 0)
               {
                 //printf("calc light\n");
               	// N, L, R, V
