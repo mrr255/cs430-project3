@@ -37,8 +37,6 @@ typedef struct //Struct Redefined for lights
       double radial_a0;
       double angular_a0;
       double theta;
-      //int angular-a1; //??
-      //int angular-a2; //??
     } light;
   };
 } Object;
@@ -416,11 +414,11 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                     closest_shadow_object_distance = sphereIntersect(objects[k],rOn, rDn);
                    break;
                    case 2:
-                   k+=1;
+                   k+=1; //skip cameras
                  continue;
                    break;
                    case 3:
-                   k+=1;
+                   k+=1; // skip lights
                  continue;
                    break;
                    default:
@@ -436,7 +434,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                 if (closest_shadow_object_distance < dl && closest_shadow_object_distance > 0)
                 {
                   closest_shadow_object = k;
-                  printf("found shadow: %i\n", k);
+                  //printf("found shadow: %i\n", k);
                   shadow = 1;
                 }
                 k+=1;
@@ -494,13 +492,13 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                 double fang;
                 double* vlight = malloc(sizeof(double)*3);
                 vlight = objects[lightI]->light.direction;
-                if(objects[lightI]->light.theta == 0 || objects[lightI]->light.angular_a0 == 0)
+                if(objects[lightI]->light.theta == 0 || objects[lightI]->light.angular_a0 == 0) //if point light
                 {
                   fang = 1.0;
                 }
                 else
                 {
-                  double targetVal = cos(objects[lightI]->light.theta * 3.14159265 / 180.0);
+                  double targetVal = cos(objects[lightI]->light.theta * 3.14159265 / 180.0); // if spotlight
                   if(targetVal > v3_dot(rDn,vlight))
                   {
                     fang = 0.0;
@@ -515,13 +513,13 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                 double* specularcalc = malloc(sizeof(double)*3);
                 if(v3_dot(N,L) > 0)
                 {
-                  v3_mult(objects[lightI]->light.color,diffuse,diffusecalc);
+                  v3_mult(objects[lightI]->light.color,diffuse,diffusecalc); // add diffuse component
                   v3_scale(diffusecalc,v3_dot(N,L),diffusecalc);
 
 
                   if(v3_dot(V,R) > 0)
                   {
-                  v3_mult(objects[lightI]->light.color,specular,specularcalc);
+                  v3_mult(objects[lightI]->light.color,specular,specularcalc); // add specular component
                   v3_scale(specularcalc,pow(v3_dot(V,R),20),specularcalc);
                   }
                   else{
@@ -531,7 +529,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                     }
                   }
                 }
-              	color[0] += frad * fang * clamp(diffusecalc[0] + specularcalc[0],0,1);
+              	color[0] += frad * fang * clamp(diffusecalc[0] + specularcalc[0],0,1); // add components
               	color[1] += frad * fang * clamp(diffusecalc[1] + specularcalc[1],0,1);
               	color[2] += frad * fang * clamp(diffusecalc[2] + specularcalc[2],0,1);
               }
@@ -542,9 +540,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
           color[2] = clamp(color[2],0,255);
 
           color[0] = color[0]*255.0;
-
           color[1] = color[1]*255.0;
-
           color[2] = color[2]*255.0;
 
 
