@@ -36,6 +36,7 @@ typedef struct //Struct Redefined for lights
       double radial_a1;
       double radial_a0;
       double angular_a0;
+      double theta;
       //int angular-a1; //??
       //int angular-a2; //??
     } light;
@@ -44,7 +45,7 @@ typedef struct //Struct Redefined for lights
 
 typedef struct Pixel
   {
-  unsigned char r, g, b;
+    unsigned char r, g, b;
   } Pixel;
 
 Object** parseScene(char* input);
@@ -56,7 +57,7 @@ char* checkNextString(FILE* json, char* value);
 double* nextVector(FILE* json);
 double nextNumber(FILE* json);
 Pixel* raycast(Object** objects, int pxW, int pxH);
-int planeIntersect(Object* object, double* rO, double* rD);
+double planeIntersect(Object* object, double* rO, double* rD);
 int imageWriter(Pixel* image, char* input, int pxW, int pxH);
 
 
@@ -85,6 +86,20 @@ static inline double distance(double* v1,double* v2)
   return len;
 }
 
+static inline double v3_length(double* v)
+{
+  double len = sqrt(sqr(v[0]) + sqr(v[1]) + sqr(v[2]));
+  return len;
+}
+
+static inline double clamp(double in,double l,double u)
+{
+  if(in < l)
+  in = l;
+  if(in > u)
+  in = u;
+  return in;
+}
 static inline void printObjects(Object** objects)
 {
   for(int i = 0;objects[i]!= NULL;i+=1)
@@ -190,7 +205,7 @@ int main (int c, char** argv)
     exit(1);
   }
   Object** r = parseScene(argv[3]);
-  printObjects(r);
+  //printObjects(r);
   int i = 0;
   int pxW = atoi(argv[1]);
   int pxH = atoi(argv[2]);
@@ -221,7 +236,7 @@ int imageWriter(Pixel* image, char* input, int pxW, int pxH)
   fclose(fw);
 }
 
-int planeIntersect(Object* object, double* rO, double* rD)
+double planeIntersect(Object* object, double* rO, double* rD)
 {
   double* norm = object->plane.normal;
   double* pnt = object->plane.position;
@@ -233,7 +248,7 @@ int planeIntersect(Object* object, double* rO, double* rD)
   //form: mt+b = 0
   double m = norm[0]*rD[0] + norm[1]*rD[1] + norm[2]*rD[2];
   double b = norm[0]*rO[0] + norm[1]*rO[1] + norm[2]*rO[2] - norm[0]*pnt[0] - norm[1]*pnt[1] - norm[2]*pnt[2];
-  double t = (-1*b)/m;
+  double t = (-1.0*b)/m;
   if(t >= 0)
   {
     return t;
@@ -244,7 +259,7 @@ int planeIntersect(Object* object, double* rO, double* rD)
   }
 }
 
-int sphereIntersect(Object* object, double* rO, double* rD)
+double sphereIntersect(Object* object, double* rO, double* rD)
 {
   double r = object->sphere.radius;
   double* pnt = object->sphere.position;
@@ -263,18 +278,18 @@ int sphereIntersect(Object* object, double* rO, double* rD)
 
   double c = sqr(rO[0]- pnt[0]) + sqr(rO[1]-pnt[1]) + sqr(rO[2] -pnt[2])- sqr(r);
 
-  double det = sqr(b) - 4 * a * c;
+  double det = sqr(b) - 4.0 * a * c;
 
   if (det < 0)
     return -1;
 
   det = sqrt(det);
 
-  double t0 = (-b - det) / (2*a);
+  double t0 = (-b - det) / (2.0*a);
   if (t0 >= 0)
     return t0;
 
-  double t1 = (-b + det) / (2*a);
+  double t1 = (-b + det) / (2.0*a);
   if (t1 >= 0)
     return t1;
 
@@ -303,8 +318,8 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
     fprintf(stderr, "Error: No camera defined ");
     exit(1);
   }
-  double pixHeight = ch / pxH; //size of the pixels
-  double pixWidth = cw / pxW;
+  double pixHeight = ch / (double) pxH; //size of the pixels
+  double pixWidth = cw / (double) pxW;
 
   double rO[3] = {cx, cy, 0}; //origin of ray
 
@@ -313,7 +328,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
   image = malloc(sizeof(Pixel) * pxW * pxH); //Prepare memory for image data
   for (int y = pxH; y >= 0; y -= 1) {
     for (int x = 0; x < pxW; x += 1) {
-      double rD[3] = {cx - (cw/2) + pixWidth * (x + 0.5),cy - (ch/2) + pixHeight * (y + 0.5),1.0}; //location of current pixel
+      double rD[3] = {cx - (cw/2.0) + pixWidth * (x + 0.5),cy - (ch/2.0) + pixHeight * (y + 0.5),1.0}; //location of current pixel
 
       normalize(rD);
 
@@ -355,35 +370,49 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
           color[0] = 0; // ambient_color[0];
           color[1] = 0; // ambient_color[1];
           color[2] = 0; // ambient_color[2];
-
-          for (int j=0; objects[j] != NULL; j+=1)
+          int lightI = 0;
+          while(objects[lightI] != NULL)
           {
             //printf("shadow test\n");
-            // Shadow test
-            if(objects[j]->kind != 3)
+             //Shadow test
+            if(objects[lightI]->kind != 3) // if Not a light, move on
+            {
+              lightI+=1;
               continue;
+            }
 
-              double* Ron = malloc(sizeof(double)*3);
-              v3_scale(rD,bestT,Ron);
-              v3_add(Ron,rO,Ron);
-              double* Rdn = malloc(sizeof(double)*3);
-              v3_subtract(objects[j]->light.position,Ron,Rdn);
+              // IF LIGHT DO WORK!
+              double* rOn = malloc(sizeof(double)*3); //ro +(t) rd = intersection
+              v3_scale(rD,bestT,rOn);
+              v3_add(rOn,rO,rOn);
+
+              double* rDn = malloc(sizeof(double)*3); // dl = |light position - intersection|
+              v3_subtract(objects[lightI]->light.position,rOn,rDn);
+
+              double dl = v3_length(rDn);
+              normalize(rDn);
+
               int closest_shadow_object = -1;
               double closest_shadow_object_distance = INFINITY;
               double* closest_position = malloc(sizeof(double)*3);
-              for (int k=0; objects[k] == NULL; k+=1)
-              { //printf("check for shadow\n");
-                if (k == bestO)
+
+              int k = 0;
+              while(objects[k] != NULL)
+              { //printf("check for shadow %i\n", k);
+
+                if (k == bestO) //skip self
+                  {
+                    k+=1;
                   continue;
+                }
+                
                 switch(objects[k]->kind) // Added support for Lights
                 {
       	           case 0:
-      	            closest_shadow_object_distance = planeIntersect(objects[i],rO, rD);
-                    closest_position = objects[k]->plane.position;
+      	            closest_shadow_object_distance = planeIntersect(objects[k],rOn, rDn);
       	           break;
                    case 1:
-                    closest_shadow_object_distance = sphereIntersect(objects[i],rO, rD);
-                    closest_position = objects[k]->sphere.position;
+                    closest_shadow_object_distance = sphereIntersect(objects[k],rOn, rDn);
                    break;
                    case 2:
                    break;
@@ -391,17 +420,20 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                    break;
                    default:
                    // Horrible error
-                   fprintf(stderr, "Error: invalid object %i\n", objects[i]->kind);
+                   fprintf(stderr, "Error: invalid object %i\n", objects[k]->kind);
                     exit(1);
       	        }
-                if (closest_shadow_object_distance > distance(objects[j]->light.position,closest_position)) {
-              	  continue;
+                if (closest_shadow_object_distance > dl) {
+                  k+=1;
+                  //printf("beyond light\n");
+                  continue;
               	}
-                if (closest_shadow_object_distance < INFINITY && closest_shadow_object_distance > 0)
+                if (closest_shadow_object_distance < dl && closest_shadow_object_distance > 0)
                 {
                   closest_shadow_object = k;
+                  printf("found shadow: %i\n", k);
                 }
-
+                k+=1;
               }
               if (closest_shadow_object == -1)
               {
@@ -423,7 +455,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                     position = objects[bestO]->plane.position;
       	           break;
                    case 1:
-                    v3_subtract(Ron, objects[bestO]->sphere.position,N); // sphere
+                    v3_subtract(rOn,objects[bestO]->sphere.position, N); // sphere
                     normalize(N);
                     diffuse = objects[bestO]->sphere.diffuse_color;
                   	specular = objects[bestO]->sphere.specular_color;
@@ -439,62 +471,76 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
                     exit(1);
       	        }
 
-              	L = Rdn; // light_position - Ron;
-                double dot = v3_dot(L, N);
-                v3_scale(N,(-2*dot),R);
-                v3_add(R,L,R);//reflection of L;
-              	V = rD;
+              	L = rDn;
 
-                double frad = 1/(objects[j]->light.radial_a2*sqr(distance(objects[j]->light.position,position))
-                + objects[j]->light.radial_a1*distance(objects[j]->light.position,position)
-                + objects[j]->light.radial_a0);
-                double fang = 1.0; // COMPLETE
+                //v3_scale(rDn,-1,L);
+
+                double dot = v3_dot(N, L);
+                v3_scale(N,2.0*(dot),R);
+                v3_subtract(R,L,R);//reflection of L;
+
+                v3_scale(rD,-1,V);
+
+                double frad = 1.0/(objects[lightI]->light.radial_a2*sqr(dl)
+                + objects[lightI]->light.radial_a1*dl
+                + objects[lightI]->light.radial_a0);
+
+                double fang;
+                double* vlight = malloc(sizeof(double)*3);
+                vlight = objects[lightI]->light.direction;
+                if(objects[lightI]->light.theta == 0 || objects[lightI]->light.angular_a0 == 0)
+                {
+                  fang = 1.0;
+                }
+                else
+                {
+                  double targetVal = cos(objects[lightI]->light.theta * 3.14159265 / 180.0);
+                  if(targetVal > v3_dot(rDn,vlight))
+                  {
+                    fang = 0.0;
+                  }
+                  else{
+                    fang = pow(v3_dot(rDn,vlight),objects[lightI]->light.angular_a0);
+                  }
+                }
+
 
                 double* diffusecalc = malloc(sizeof(double)*3);
-                v3_mult(objects[j]->light.color,diffuse,diffusecalc);
-                v3_scale(diffusecalc,-1*v3_dot(L,N),diffusecalc);
-
-                for(int q = 0;q < 3; q +=1)
-                {
-                  diffusecalc[q] = abs(diffusecalc[q]);
-                  //printf("%lf ", diffusecalc[q]);
-                }
-                //printf("\n" );
                 double* specularcalc = malloc(sizeof(double)*3);
-                v3_mult(objects[j]->light.color,specular,specularcalc);
-                v3_scale(specularcalc,pow(v3_dot(R,V),-5),specularcalc);
-
-                for(int q = 0;q < 3; q +=1)
+                if(v3_dot(N,L) > 0)
                 {
-                  if(specularcalc[q] < 0)
-                    specularcalc[q] = -specular[q];
-                  //printf("%lf ", specularcalc[q]);
-                }
-                //printf("\n" );
+                  v3_mult(objects[lightI]->light.color,diffuse,diffusecalc);
+                  v3_scale(diffusecalc,v3_dot(N,L),diffusecalc);
 
-              	color[0] += frad * fang * (diffusecalc[0] + specularcalc[0]);
-              	color[1] += frad * fang * (diffusecalc[1] + specularcalc[1]);
-              	color[2] += frad * fang * (diffusecalc[2] + specularcalc[2]);
+
+                  if(v3_dot(V,R) > 0)
+                  {
+                  v3_mult(objects[lightI]->light.color,specular,specularcalc);
+                  v3_scale(specularcalc,pow(v3_dot(V,R),20),specularcalc);
+                  }
+                  else{
+                    for(int q = 0;q < 3; q +=1)
+                    {
+                      specularcalc[q] = 0.0;
+                    }
+                  }
+                }
+              	color[0] += frad * fang * clamp(diffusecalc[0] + specularcalc[0],0,1);
+              	color[1] += frad * fang * clamp(diffusecalc[1] + specularcalc[1],0,1);
+              	color[2] += frad * fang * clamp(diffusecalc[2] + specularcalc[2],0,1);
               }
-              color[0] = color[0]*255;
-              if(color[0] > 255)
-                color[0] = 255;
-              if(color[0] < 0)
-                color[0] = 0;
-              //printf("%lf\n", color[0]);
-              color[1] = color[1]*255;
-              if(color[1] > 255)
-                color[1] = 255;
-              if(color[1] < 0)
-                color[1] = 0;
-              //printf("%lf\n", color[1]);
-              color[2] = color[2]*255;
-              if(color[2] > 255)
-                color[2] = 255;
-              if(color[2] < 0)
-                color[2] = 0;
-              //printf("%lf\n", color[2]);
+              lightI+=1;
           }
+          color[0] = clamp(color[0],0,255);
+          color[1] = clamp(color[1],0,255);
+          color[2] = clamp(color[2],0,255);
+
+          color[0] = color[0]*255.0;
+
+          color[1] = color[1]*255.0;
+
+          color[2] = color[2]*255.0;
+
 
           image[pxH*(pxH - y-1) + x].r = (unsigned char)(color[0]); // store color data
           image[pxH*(pxH - y-1) + x].g = (unsigned char)(color[1]);
@@ -667,6 +713,20 @@ Object** parseScene(char* input)
                 if (objects[objectI]->kind == 3)
                 {
                   objects[objectI]->light.angular_a0 = value;
+                }
+                else
+                {
+                  fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+                  fclose(json);
+                  exit(1);
+                }
+      	      }
+          else if ((strcmp(key, "theta") == 0))
+              {
+          	    double value = nextNumber(json);
+                if (objects[objectI]->kind == 3)
+                {
+                  objects[objectI]->light.theta = value;
                 }
                 else
                 {
